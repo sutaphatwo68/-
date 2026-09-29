@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกม ภารกิจนักคิด พิชิตปัญหา</title>
+    <!-- Google Fonts & Tailwind CSS CDN -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        * {
+            font-family: 'Prompt', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            background: linear-gradient(135deg, #e0f2fe 0%, #fef3c7 50%, #f0fdf4 100%);
+            min-height: 100vh;
+        }
+        .game-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.08), 0 10px 15px -5px rgba(0, 0, 0, 0.04);
+        }
+        .btn-bounce {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .btn-bounce:hover {
+            transform: translateY(-3px) scale(1.02);
+        }
+        .btn-bounce:active {
+            transform: translateY(1px) scale(0.98);
+        }
+        .selected-card {
+            border: 3px solid #3b82f6 !important;
+            background-color: #eff6ff !important;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+        }
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .pop-in {
+            animation: popIn 0.3s ease-out forwards;
+        }
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-between p-3 md:p-6 min-h-screen text-slate-700">
+
+    <!-- Top Header -->
+    <header class="max-w-4xl w-full mx-auto flex justify-between items-center bg-white/90 p-3 md:p-4 rounded-2xl shadow-sm border border-white mb-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl md:text-3xl shadow-inner">
+                🤖
+            </div>
+            <div>
+                <h1 class="font-bold text-base md:text-xl text-blue-600 leading-tight">ภารกิจนักคิด พิชิตปัญหา</h1>
+                <p class="text-xs text-slate-400 font-medium hidden sm:block">วิทยาการคำนวณ ป.5 • การแยกปัญหา (Decomposition)</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <div class="bg-amber-100/80 text-amber-900 font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm border border-amber-200 flex items-center space-x-1.5">
+                <span>⭐</span>
+                <span>คะแนน: <span id="total-score" class="text-amber-600 font-extrabold text-base md:text-lg">0</span></span>
+            </div>
+            <button id="sound-btn" onclick="toggleSound()" class="p-2 md:p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-lg md:text-xl transition shadow-sm" title="เปิด/ปิด เสียง">
+                🔊
+            </button>
+        </div>
+    </header>
+
+    <!-- Progress Indicator -->
+    <div id="progress-container" class="max-w-4xl w-full mx-auto mb-4 hidden">
+        <div class="flex justify-between text-xs md:text-sm text-slate-600 font-semibold mb-1.5 px-1">
+            <span id="level-indicator">ด่านที่ 1/5</span>
+            <span id="progress-text" class="text-blue-600 font-bold">0%</span>
+        </div>
+        <div class="w-full bg-slate-200/80 rounded-full h-3.5 p-0.5 shadow-inner">
+            <div id="progress-bar" class="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 h-2.5 rounded-full transition-all duration-500 shadow-sm" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Main Dynamic Content Container -->
+    <main id="main-container" class="max-w-4xl w-full mx-auto my-auto">
+
+        <!-- 1. Start Screen -->
+        <div id="start-screen" class="game-card p-6 md:p-10 rounded-3xl text-center pop-in">
+            <div class="inline-block relative mb-4">
+                <span class="text-7xl md:text-8xl inline-block animate-bounce">🤖</span>
+                <span class="text-4xl absolute -top-2 -right-4">🎒</span>
+            </div>
+            <h2 class="text-2xl md:text-4xl font-extrabold text-slate-800 mb-3">ยินดีต้อนรับนักคิดตัวน้อย!</h2>
+            <p class="text-sm md:text-lg text-slate-600 max-w-xl mx-auto mb-6 leading-relaxed">
+                มาออกเดินทางผจญภัยช่วย <strong class="text-blue-600 font-bold">"หุ่นยนต์น้อย"</strong> ทำภารกิจต่าง ๆ โดยเรียนรู้การ <strong class="text-emerald-600 font-bold">"แยกปัญหา"</strong> ใหญ่ ให้กลายเป็นเรื่องย่อย ๆ ที่จัดการได้ง่ายนิดเดียว!
+            </p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto mb-8 text-xs md:text-sm font-semibold text-slate-600">
+                <div class="bg-blue-50 border border-blue-100 p-3 rounded-2xl flex flex-col items-center">
+                    <span class="text-2xl mb-1">🎯</span> 5 ด่านผจญภัย
+                </div>
+                <div class="bg-amber-50 border border-amber-100 p-3 rounded-2xl flex flex-col items-center">
+                    <span class="text-2xl mb-1">⭐</span> ด่านละ 10 คะแนน
+                </div>
+                <div class="bg-purple-50 border border-purple-100 p-3 rounded-2xl flex flex-col items-center">
+                    <span class="text-2xl mb-1">💡</span> คำใบ้ช่วยคิด
+                </div>
+                <div class="bg-emerald-50 border border-emerald-100 p-3 rounded-2xl flex flex-col items-center">
+                    <span class="text-2xl mb-1">🏆</span> เหรียญรางวัล
+                </div>
+            </div>
+            <button onclick="startGame()" class="btn-bounce bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg md:text-2xl px-10 py-4 rounded-2xl shadow-lg border-b-4 border-emerald-700 inline-flex items-center space-x-2">
+                <span>เริ่มผจญภัยกันเลย!</span>
+                <span class="text-2xl">🚀</span>
+            </button>
+        </div>
+
+        <!-- 2. Level Game Screen -->
+        <div id="level-screen" class="game-card p-5 md:p-8 rounded-3xl hidden pop-in">
+            <!-- Level Scenario Header -->
+            <div class="flex items-start space-x-3 md:space-x-4 mb-5 pb-4 border-b border-slate-100">
+                <div id="robot-avatar" class="text-4xl md:text-5xl bg-blue-50 p-3 rounded-2xl border border-blue-100 flex-shrink-0">🤖</div>
+                <div>
+                    <span id="level-badge" class="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full mb-1">ด่านที่ 1</span>
+                    <h3 id="scenario-title" class="text-base md:text-xl font-bold text-slate-800 leading-snug"></h3>
+                    <p id="scenario-desc" class="text-xs md:text-sm text-slate-600 mt-1"></p>
+                </div>
+            </div>
+
+            <!-- Quiz Interactive Area -->
+            <div id="quiz-area" class="my-5 min-h-[220px]"></div>
+
+            <!-- Feedback / Hint Box -->
+            <div id="feedback-box" class="hidden p-4 rounded-2xl mb-5 text-sm md:text-base font-medium"></div>
+
+            <!-- Footer Buttons -->
+            <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+                <button id="retry-btn" onclick="retryLevel()" class="hidden btn-bounce bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-5 py-2.5 rounded-xl text-sm md:text-base flex items-center space-x-1">
+                    <span>🔄</span> <span>ลองใหม่อีกครั้ง</span>
+                </button>
+                <div class="ml-auto flex space-x-2">
+                    <button id="submit-btn" onclick="checkAnswer()" class="btn-bounce bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow-md text-sm md:text-base">
+                        ส่งคำตอบ ✨
+                    </button>
+                    <button id="next-btn" onclick="nextLevel()" class="hidden btn-bounce bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-8 py-3 rounded-xl shadow-md text-sm md:text-base">
+                        ด่านถัดไป ➔
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Post-Game Quiz Screen -->
+        <div id="quiz-screen" class="game-card p-5 md:p-8 rounded-3xl hidden pop-in">
+            <div class="flex justify-between items-center mb-4">
+                <span class="bg-purple-100 text-purple-700 text-xs md:text-sm font-bold px-3.5 py-1 rounded-full">
+                    📝 แบบทดสอบทบทวนความรู้ (ข้อที่ <span id="quiz-num">1</span>/5)
+                </span>
+            </div>
+            <h3 id="quiz-question" class="text-base md:text-xl font-bold text-slate-800 mb-5 leading-relaxed"></h3>
+            <div id="quiz-options" class="space-y-3 mb-5"></div>
+            <div id="quiz-feedback" class="hidden p-4 rounded-2xl mb-5 text-sm md:text-base font-medium"></div>
+            <div class="flex justify-end pt-3 border-t border-slate-100">
+                <button id="quiz-submit-btn" onclick="checkQuizAnswer()" class="btn-bounce bg-purple-600 hover:bg-purple-700 text-white font-bold px-8 py-3 rounded-xl shadow-md text-sm md:text-base">
+                    ตอบคำถาม ✨
+                </button>
+                <button id="quiz-next-btn" onclick="nextQuizQuestion()" class="hidden btn-bounce bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-8 py-3 rounded-xl shadow-md text-sm md:text-base">
+                    ข้อถัดไป ➔
+                </button>
+            </div>
+        </div>
+
+        <!-- 4. Summary & Certificate Screen -->
+        <div id="summary-screen" class="game-card p-6 md:p-10 rounded-3xl text-center hidden pop-in">
+            <div id="rank-icon" class="text-7xl md:text-8xl mb-2 inline-block">🏆</div>
+            <h2 id="rank-title" class="text-2xl md:text-3xl font-extrabold text-slate-800 mb-2"></h2>
+            <p id="rank-desc" class="text-xs md:text-base text-slate-600 mb-6 max-w-md mx-auto"></p>
+
+            <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 md:p-5 mb-6 max-w-md mx-auto flex justify-around items-center">
+                <div>
+                    <p class="text-xs md:text-sm text-slate-500 font-semibold mb-0.5">คะแนนเต็มภารกิจ</p>
+                    <p class="text-3xl md:text-4xl font-black text-amber-600"><span id="final-score">0</span><span class="text-lg font-normal text-slate-400">/50</span></p>
+                </div>
+                <div class="h-10 w-px bg-amber-200"></div>
+                <div>
+                    <p class="text-xs md:text-sm text-slate-500 font-semibold mb-0.5">โบนัสแบบทดสอบ</p>
+                    <p class="text-3xl md:text-4xl font-black text-purple-600"><span id="final-quiz-score">0</span><span class="text-lg font-normal text-slate-400">/5</span></p>
+                </div>
+            </div>
+
+            <!-- Badges Earned -->
+            <div class="mb-6">
+                <h4 class="font-bold text-slate-700 mb-3 text-xs md:text-sm">🏅 เหรียญรางวัลเกียรติยศที่คุณได้รับ</h4>
+                <div class="flex flex-wrap justify-center gap-2.5">
+                    <span class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-3.5 py-2 rounded-2xl text-xs md:text-sm font-bold flex items-center space-x-1.5 shadow-sm">
+                        <span>🏅</span> <span>แยกปัญหาเก่ง</span>
+                    </span>
+                    <span class="bg-purple-50 border border-purple-200 text-purple-800 px-3.5 py-2 rounded-2xl text-xs md:text-sm font-bold flex items-center space-x-1.5 shadow-sm">
+                        <span>🧩</span> <span>นักต่อจิ๊กซอว์ปัญหา</span>
+                    </span>
+                    <span class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 rounded-2xl text-xs md:text-sm font-bold flex items-center space-x-1.5 shadow-sm">
+                        <span>🚀</span> <span>นักคิดตัวน้อย</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Learning Summary Box -->
+            <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 md:p-6 mb-8 text-left max-w-2xl mx-auto shadow-sm">
+                <h4 class="font-bold text-blue-900 mb-2 flex items-center text-sm md:text-base">
+                    💡 สรุปความรู้: การแยกปัญหา (Decomposition)
+                </h4>
+                <p class="text-blue-800 text-xs md:text-sm leading-relaxed mb-3">
+                    “<strong>การแยกปัญหา</strong> คือ การนำปัญหาใหญ่หรือภารกิจที่ซับซ้อน มาแบ่งออกเป็นปัญหาย่อยหรือขั้นตอนเล็ก ๆ เพื่อให้เราเข้าใจและจัดการแก้ปัญหาได้ง่ายขึ้น”
+                </p>
+                <div class="bg-white/80 p-3 rounded-xl border border-blue-100 text-blue-900 text-xs md:text-sm font-bold text-center">
+                    “เก่งมาก! ตอนนี้เธอรู้จักวิธีแยกปัญหาแล้ว ลองนำวิธีนี้ไปใช้กับปัญหาในชีวิตประจำวันดูนะ!”
+                </div>
+            </div>
+
+            <button onclick="restartGame()" class="btn-bounce bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-base md:text-xl px-9 py-3.5 rounded-2xl shadow-lg border-b-4 border-blue-800">
+                🔄 เล่นใหม่อีกครั้ง
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-slate-400 my-4 font-medium">
+        สื่อการเรียนรู้วิทยาการคำนวณ ชั้นประถมศึกษาปีที่ 5 • ภารกิจนักคิด พิชิตปัญหา
+    </footer>
+
+    <!-- Game Engine Script -->
+    <script>
+        // Web Audio Sound FX Engine
+        let soundEnabled = true;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+                osc.start(now);
+                osc.stop(now + 0.45);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now); // A3
+                osc.frequency.setValueAtTime(174.61, now + 0.15); // F3
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } else if (type === 'click') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(450, now);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-btn').innerText = soundEnabled ? '🔊' : '🔇';
+        }
+
+        // Global Game State
+        let currentLevel = 1;
+        let totalScore = 0;
+        let selectedAnswers = [];
+        let level5Groups = {
+            group1: [], // ตกแต่ง & ป้าย
+            group2: [], // โต๊ะ & อุปกรณ์
+            group3: []  // สมาชิก & ตรวจสอบ
+        };
+
+        // Level Definitions
+        const levels = [
+            {
+                title: "ด่านที่ 1: รู้จักการแยกปัญหา",
+                scenarioTitle: "สถานการณ์: หุ่นยนต์น้อยต้องการจัดกระเป๋านักเรียนให้พร้อมไปโรงเรียน",
+                scenarioDesc: "ให้นักเรียนเลือกว่า ข้อใดคือการแยกปัญหาที่ถูกต้องที่สุด",
+                avatar: "🎒",
+                type: "single",
+                options: [
+                    { text: "A. จัดกระเป๋าให้เสร็จโดยไม่คิดอะไร", correct: false },
+                    { text: "B. แบ่งงานเป็น ตรวจตารางเรียน → เตรียมหนังสือ → เตรียมสมุด → เตรียมอุปกรณ์ → ตรวจความเรียบร้อย", correct: true },
+                    { text: "C. หยิบของทุกอย่างใส่กระเป๋า", correct: false },
+                    { text: "D. ให้เพื่อนจัดกระเป๋าแทน", correct: false }
+                ],
+                explanation: "ถูกต้อง! เราแบ่งงานใหญ่ให้เป็นงานย่อย ๆ จึงเรียกว่า การแยกปัญหา",
+                hint: "ลองมองหาตัวเลือกที่มีการแบ่งขั้นตอนย่อย ๆ ออกเป็นส่วน ๆ ดูสิจ๊ะ!"
+            },
+            {
+                title: "ด่านที่ 2: แยกปัญหาในชีวิตประจำวัน",
+                scenarioTitle: "สถานการณ์: มินต้องการทำแซนด์วิชสำหรับมื้อเช้า",
+                scenarioDesc: "ให้เรียงลำดับขั้นตอนย่อยในการทำแซนด์วิชให้ถูกต้อง (ใช้ปุ่ม ▲ และ ▼ เพื่อสลับลำดับ)",
+                avatar: "🥪",
+                type: "order",
+                items: [
+                    "เตรียมผัก",
+                    "เตรียมขนมปัง",
+                    "จัดใส่จาน",
+                    "เตรียมไส้แซนด์วิช",
+                    "ประกบขนมปัง",
+                    "ใส่ไส้ลงบนขนมปัง"
+                ],
+                correctOrder: [
+                    "เตรียมขนมปัง",
+                    "เตรียมผัก",
+                    "เตรียมไส้แซนด์วิช",
+                    "ใส่ไส้ลงบนขนมปัง",
+                    "ประกบขนมปัง",
+                    "จัดใส่จาน"
+                ],
+                explanation: "ปัญหาใหญ่คือการทำแซนด์วิช เราสามารถแบ่งออกเป็นขั้นตอนย่อย ๆ และเรียงตามลำดับได้!",
+                hint: "เริ่มต้นจากการเตรียมวัตถุดิบ (ขนมปัง, ผัก, ไส้) ก่อน แล้วค่อยประกอบ และจบด้วยการจัดใส่จานนะ!"
+            },
+            {
+                title: "ด่านที่ 3: ช่วยหุ่นยนต์จัดห้อง",
+                scenarioTitle: "สถานการณ์: ห้องของหุ่นยนต์รกมาก เขาต้องการทำความสะอาดห้อง",
+                scenarioDesc: "เลือกเฉพาะงานย่อยที่เกี่ยวข้องกับ 'การทำความสะอาดและจัดห้อง' (เลือกได้หลายข้อ)",
+                avatar: "🧹",
+                type: "multi",
+                options: [
+                    { text: "เก็บของเล่น", correct: true },
+                    { text: "จัดหนังสือ", correct: true },
+                    { text: "ทิ้งขยะ", correct: true },
+                    { text: "เช็ดโต๊ะ", correct: true },
+                    { text: "ทำการบ้านวิชาคณิตศาสตร์", correct: false },
+                    { text: "รดน้ำต้นไม้หน้าบ้าน", correct: false }
+                ],
+                explanation: "เก่งมาก! งานทำความสะอาดห้องจะประกอบด้วยงานย่อย ๆ เช่น เก็บของเล่น จัดหนังสือ ทิ้งขยะ และเช็ดโต๊ะ ส่วนทำการบ้านและรดน้ำต้นไม้ไม่ใช่งานทำความสะอาดห้องจ้า",
+                hint: "มีงาน 4 ข้อที่เกี่ยวกับการจัดห้องโดยตรง และมี 2 ข้อที่ไม่เกี่ยวเลย ตัดข้อที่ไม่เกี่ยวออกนะ!"
+            },
+            {
+                title: "ด่านที่ 4: ภารกิจเรียงลำดับ",
+                scenarioTitle: "สถานการณ์: นักเรียนต้องการเตรียมตัวไปโรงเรียนตอนเช้า",
+                scenarioDesc: "เรียงลำดับขั้นตอนการเตรียมตัวตอนเช้าให้ถูกต้องเพื่อไปโรงเรียนทันเวลา",
+                avatar: "🌅",
+                type: "order",
+                items: [
+                    "แต่งตัว",
+                    "ตื่นนอน",
+                    "ไปโรงเรียน",
+                    "อาบน้ำ",
+                    "เตรียมกระเป๋า",
+                    "รับประทานอาหารเช้า"
+                ],
+                correctOrder: [
+                    "ตื่นนอน",
+                    "อาบน้ำ",
+                    "แต่งตัว",
+                    "รับประทานอาหารเช้า",
+                    "เตรียมกระเป๋า",
+                    "ไปโรงเรียน"
+                ],
+                explanation: "ยอดเยี่ยม! การแบ่งงานออกเป็นขั้นตอนเล็ก ๆ ช่วยให้เราจัดการปัญหาและเวลาได้ง่ายขึ้น",
+                hint: "เริ่มต้นวันด้วย 'ตื่นนอน' และสิ้นสุดขั้นตอนด้วย 'ไปโรงเรียน' ลองเรียงตรงกลางดูนะ!"
+            },
+            {
+                title: "ด่านที่ 5: ภารกิจสุดท้าย",
+                scenarioTitle: "สถานการณ์: ห้องเรียนจะจัดงานวันวิทยาศาสตร์ และนักเรียนต้องช่วยกันเตรียมงาน",
+                scenarioDesc: "ปัญหาใหญ่คือ 'การจัดงานวันวิทยาศาสตร์' ให้เลือกเฉพาะงานย่อยที่จำเป็นสำหรับการเตรียมงาน (เลือกเฉพาะงานที่เกี่ยวกับการจัดงาน)",
+                avatar: "🔬",
+                type: "multi",
+                options: [
+                    { text: "🎨 ตกแต่งห้องเรียน", correct: true },
+                    { text: "🪑 จัดเตรียมโต๊ะเก้าอี้", correct: true },
+                    { text: "🧪 เตรียมอุปกรณ์ทดลอง", correct: true },
+                    { text: "🪧 ทำป้ายชื่อนิทรรศการ", correct: true },
+                    { text: "👥 แบ่งหน้าที่ความรับผิดชอบ", correct: true },
+                    { text: "✨ ตรวจสอบความเรียบร้อย", correct: true },
+                    { text: "🎮 นั่งเล่นเกมคอมพิวเตอร์", correct: false },
+                    { text: "😴 นอนพักผ่อนเฉยๆ", correct: false }
+                ],
+                explanation: "สุดยอดมาก! ปัญหาใหญ่อย่างการจัดงานวันวิทยาศาสตร์ สามารถย่อยออกมาเป็น 6 งานสำคัญ และเมื่อย่อยงานแล้ว เรายังสามารถแบ่งกลุ่มงานให้เพื่อนๆ ช่วยกันทำตามความถนัดได้ด้วยนะ!",
+                hint: "มี 6 ข้อที่เป็นงานย่อยในการเตรียมงาน และมี 2 ข้อที่ไม่เกี่ยวข้องเลย (เล่นเกม, นอนพัก) ตัดข้อที่ไม่เกี่ยวออกแล้วเลือกข้อที่เหลือนะจ๊ะ!"
+            }
+        ];
+
+        // Question Bank for End Quiz
+        const quizBank = [
+            {
+                q: "ข้อใดอธิบายการแยกปัญหา (Decomposition) ได้ถูกต้องที่สุด?",
+                options: [
+                    "ทำทุกอย่างพร้อมกันทั้งหมด",
+                    "แบ่งปัญหาใหญ่ให้เป็นปัญหาย่อยที่จัดการได้ง่าย",
+                    "หลีกเลี่ยงการแก้ปัญหาซับซ้อน",
+                    "ให้คนอื่นแก้ปัญหาแทนเราเสมอ"
+                ],
+                answer: 1,
+                exp: "การแยกปัญหา คือการแบ่งงานใหญ่หรือซับซ้อน ออกเป็นงานย่อยเล็ก ๆ เพื่อให้เข้าใจและแก้ได้ง่ายขึ้น"
+            },
+            {
+                q: "ประโยชน์ที่สำคัญที่สุดของการแยกปัญหาคือข้อใด?",
+                options: [
+                    "ทำให้งานซับซ้อนและยากขึ้นกว่าเดิม",
+                    "ช่วยลดเวลาพักผ่อนของนักเรียน",
+                    "ทำให้เห็นขั้นตอนการทำงานชัดเจนและแก้ปัญหาง่ายขึ้น",
+                    "ทำให้ไม่ต้องลงมือทำงานจริง"
+                ],
+                answer: 2,
+                exp: "เมื่อเราย่อยปัญหาลงมา เราจะมองเห็นขั้นตอนต่าง ๆ ชัดเจนขึ้น และเลือกแก้ทีละส่วนได้สะดวก"
+            },
+            {
+                q: "หากต้องการทำ 'ก๋วยเตี๋ยว' ปัญหาย่อยขั้นแรกสุดที่ควรทำคืออะไร?",
+                options: [
+                    "รับประทานก๋วยเตี๋ยว",
+                    "ปรุงรสชาติด้วยพริกและน้ำตัก",
+                    "เตรียมอุปกรณ์และวัตถุดิบ (เส้น, น้ำซุป, เครื่องปรุง)",
+                    "ล้างชามใส่ก๋วยเตี๋ยว"
+                ],
+                answer: 2,
+                exp: "ก่อนที่จะปรุงหรือรับประทาน ขั้นตอนแรกสุดของการทำอาหารคือการเตรียมวัตถุดิบและอุปกรณ์"
+            },
+            {
+                q: "ข้อใดเป็นตัวอย่างของการนำ 'การแยกปัญหา' ไปใช้ในชีวิตประจำวัน?",
+                options: [
+                    "การแบ่งขั้นตอนการทำรายงานวิชาต่างๆ เป็นข้อๆ",
+                    "การนั่งรอให้งานเสร็จเองโดยไม่ทำอะไร",
+                    "การสุ่มเดาคำตอบในการสอบ",
+                    "การรีบทำทุกงานพร้อมกันในเวลาเดียว"
+                ],
+                answer: 0,
+                exp: "การทำรายงานชิ้นใหญ่โดยวางแผนแบ่งเป็นขั้นตอนย่อย ๆ ถือเป็นการใช้การแยกปัญหาอย่างถูกต้อง"
+            },
+            {
+                q: "ข้อใด 'ไม่ใช่' งานย่อยของการเตรียมตัวไปโรงเรียน?",
+                options: [
+                    "แต่งชุดนักเรียน",
+                    "จัดกระเป๋านักเรียนตามตารางเรียน",
+                    "ไปเที่ยวสวนสนุกกับเพื่อน",
+                    "รับประทานอาหารเช้า"
+                ],
+                answer: 2,
+                exp: "การไปเที่ยวสวนสนุกไม่ใช่ขั้นตอนหรือมมงานย่อยที่เกี่ยวข้องกับการเตรียมตัวไปโรงเรียน"
+            }
+        ];
+
+        let activeQuiz = [];
+        let currentQuizIndex = 0;
+        let quizScore = 0;
+
+        // Start Game Navigation
+        function startGame() {
+            playSound('click');
+            totalScore = 0;
+            currentLevel = 1;
+            document.getElementById('total-score').innerText = totalScore;
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('level-screen').classList.remove('hidden');
+            loadLevel(currentLevel);
+        }
+
+        function updateProgress() {
+            document.getElementById('total-score').innerText = totalScore;
+            document.getElementById('level-indicator').innerText = `ด่านที่ ${currentLevel}/5`;
+            const percent = ((currentLevel - 1) / 5) * 100;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            document.getElementById('progress-text').innerText = `${Math.round(percent)}%`;
+        }
+
+        // Render Current Level
+        function loadLevel(lvlNum) {
+            updateProgress();
+            const lvl = levels[lvlNum - 1];
+            
+            document.getElementById('level-badge').innerText = lvl.title.split(':')[0];
+            document.getElementById('scenario-title').innerText = lvl.scenarioTitle;
+            document.getElementById('scenario-desc').innerText = lvl.scenarioDesc;
+            document.getElementById('robot-avatar').innerText = lvl.avatar;
+
+            const quizArea = document.getElementById('quiz-area');
+            quizArea.innerHTML = '';
+            
+            // Reset Feedback UI
+            const fbBox = document.getElementById('feedback-box');
+            fbBox.classList.add('hidden');
+            fbBox.className = 'hidden p-4 rounded-2xl mb-5 text-sm md:text-base font-medium';
+            
+            document.getElementById('submit-btn').classList.remove('hidden');
+            document.getElementById('next-btn').classList.add('hidden');
+            document.getElementById('retry-btn').classList.add('hidden');
+
+            selectedAnswers = [];
+
+            if (lvl.type === 'single') {
+                lvl.options.forEach((opt, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-full text-left p-4 rounded-2xl border-2 border-slate-200 bg-white hover:bg-slate-50 transition mb-3 flex items-center font-semibold text-slate-700 btn-bounce text-sm md:text-base shadow-sm';
+                    btn.innerText = opt.text;
+                    btn.onclick = () => selectSingleOption(btn, idx);
+                    quizArea.appendChild(btn);
+                });
+            } else if (lvl.type === 'multi') {
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3';
+                lvl.options.forEach((opt, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'text-left p-4 rounded-2xl border-2 border-slate-200 bg-white hover:bg-slate-50 transition flex items-center justify-between font-semibold text-slate-700 btn-bounce text-sm md:text-base shadow-sm';
+                    btn.innerHTML = `<span>${opt.text}</span> <span class="checkbox-icon text-slate-300 text-xl">⬜</span>`;
+                    btn.onclick = () => toggleMultiOption(btn, idx);
+                    grid.appendChild(btn);
+                });
+                quizArea.appendChild(grid);
+            } else if (lvl.type === 'order') {
+                const container = document.createElement('div');
+                container.id = 'order-list';
+                container.className = 'space-y-2.5 max-w-xl mx-auto';
+                
+                lvl.items.forEach((itemText, idx) => {
+                    const row = document.createElement('div');
+                    row.className = 'order-item flex items-center justify-between bg-white border-2 border-slate-200 p-3.5 rounded-2xl shadow-sm';
+                    row.innerHTML = `
+                        <span class="font-bold text-slate-700 flex items-center space-x-3 text-sm md:text-base">
+                            <span class="w-7 h-7 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs font-black order-num">${idx + 1}</span>
+                            <span class="item-text">${itemText}</span>
+                        </span>
+                        <div class="flex space-x-1.5">
+                            <button onclick="moveItem(this, -1)" class="w-9 h-9 bg-slate-100 hover:bg-blue-100 hover:text-blue-600 rounded-xl font-bold transition flex items-center justify-center text-slate-600">▲</button>
+                            <button onclick="moveItem(this, 1)" class="w-9 h-9 bg-slate-100 hover:bg-blue-100 hover:text-blue-600 rounded-xl font-bold transition flex items-center justify-center text-slate-600">▼</button>
+                        </div>
+                    `;
+                    container.appendChild(row);
+                });
+                quizArea.appendChild(container);
+            } else if (lvl.type === 'grouping') {
+                // Interactive Grouping Level
+                const wrapper = document.createElement('div');
+                wrapper.className = 'space-y-4';
+                
+                let html = `<p class="font-bold text-slate-700 text-sm md:text-base mb-2">จัดกลุ่มงานย่อยใส่ฝ่ายที่รับผิดชอบให้ถูกต้อง:</p>`;
+                html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-3">`;
+                
+                lvl.groups.forEach(g => {
+                    html += `
+                        <div class="bg-slate-50 border-2 border-slate-200 p-3.5 rounded-2xl">
+                            <h4 class="font-bold text-xs md:text-sm text-slate-800 mb-3 border-b pb-2 text-center">${g.name}</h4>
+                            <div id="group-box-${g.id}" class="space-y-2 min-h-[100px]"></div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+
+                html += `<div class="mt-4 p-3 bg-amber-50 rounded-2xl border border-amber-200">
+                            <p class="text-xs font-bold text-amber-800 mb-2">รายการงานย่อย (คลิกที่งานย่อย แล้วเลือกฝ่ายที่จะจัดเก็บ):</p>
+                            <div id="unassigned-tasks" class="flex flex-wrap gap-2"></div>
+                         </div>`;
+
+                wrapper.innerHTML = html;
+                quizArea.appendChild(wrapper);
+
+                // Initialize grouping state
+                level5Groups = { g1: [], g2: [], g3: [] };
+                renderGroupItems();
+            }
+        }
+
+        // Single Choice Selection
+        function selectSingleOption(btn, index) {
+            playSound('click');
+            const children = btn.parentElement.children;
+            for (let child of children) {
+                child.classList.remove('selected-card');
+            }
+            btn.classList.add('selected-card');
+            selectedAnswers = [index];
+        }
+
+        // Multi Choice Selection
+        function toggleMultiOption(btn, index) {
+            playSound('click');
+            const icon = btn.querySelector('.checkbox-icon');
+            if (selectedAnswers.includes(index)) {
+                selectedAnswers = selectedAnswers.filter(i => i !== index);
+                btn.classList.remove('selected-card');
+                icon.innerText = '⬜';
+                icon.className = 'checkbox-icon text-slate-300 text-xl';
+            } else {
+                selectedAnswers.push(index);
+                btn.classList.add('selected-card');
+                icon.innerText = '☑️';
+                icon.className = 'checkbox-icon text-blue-600 text-xl';
+            }
+        }
+
+        // Move Item Up/Down for Order Level
+        function moveItem(btn, direction) {
+            playSound('click');
+            const row = btn.closest('.order-item');
+            const parent = row.parentElement;
+            if (direction === -1 && row.previousElementSibling) {
+                parent.insertBefore(row, row.previousElementSibling);
+            } else if (direction === 1 && row.nextElementSibling) {
+                parent.insertBefore(row.nextElementSibling, row);
+            }
+            // Update order numbers
+            Array.from(parent.children).forEach((el, index) => {
+                el.querySelector('.order-num').innerText = index + 1;
+            });
+        }
+
+        // Grouping Level Handlers
+        function renderGroupItems() {
+            const lvl = levels[4];
+            const unassignedDiv = document.getElementById('unassigned-tasks');
+            if (!unassignedDiv) return;
+            unassignedDiv.innerHTML = '';
+
+            // Render assigned groups
+            lvl.groups.forEach(g => {
+                const box = document.getElementById(`group-box-${g.id}`);
+                box.innerHTML = '';
+                level5Groups[g.id].forEach(task => {
+                    const tDiv = document.createElement('div');
+                    tDiv.className = 'bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm text-xs md:text-sm font-bold flex justify-between items-center text-slate-700';
+                    tDiv.innerHTML = `<span>${task.name}</span> <button onclick="removeFromGroup('${task.id}', '${g.id}')" class="text-rose-500 font-bold hover:bg-rose-50 px-1.5 py-0.5 rounded">✕</button>`;
+                    box.appendChild(tDiv);
+                });
+            });
+
+            // Render unassigned tasks
+            const assignedIds = [...level5Groups.g1, ...level5Groups.g2, ...level5Groups.g3].map(t => t.id);
+            lvl.subtasks.forEach(task => {
+                if (!assignedIds.includes(task.id)) {
+                    const tag = document.createElement('div');
+                    tag.className = 'bg-white border-2 border-amber-300 text-slate-700 px-3 py-1.5 rounded-xl text-xs md:text-sm font-bold flex items-center space-x-2 shadow-sm';
+                    
+                    let groupBtns = lvl.groups.map(g => `<button onclick="assignToGroup('${task.id}', '${g.id}')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs px-2 py-0.5 rounded-lg font-bold">${g.name.split(' ')[1]}</button>`).join(' ');
+                    
+                    tag.innerHTML = `<span>${task.name}</span> <div class="flex space-x-1 ml-2">${groupBtns}</div>`;
+                    unassignedDiv.appendChild(tag);
+                }
+            });
+        }
+
+        function assignToGroup(taskId, groupId) {
+            playSound('click');
+            const task = levels[4].subtasks.find(t => t.id === taskId);
+            if (task) {
+                level5Groups[groupId].push(task);
+                renderGroupItems();
+            }
+        }
+
+        function removeFromGroup(taskId, groupId) {
+            playSound('click');
+            level5Groups[groupId] = level5Groups[groupId].filter(t => t.id !== taskId);
+            renderGroupItems();
+        }
+
+        // Validate Level Answer
+        function checkAnswer() {
+            const lvl = levels[currentLevel - 1];
+            let isCorrect = false;
+
+            if (lvl.type === 'single') {
+                if (selectedAnswers.length === 0) return alert('กรุณาเลือกคำตอบก่อนนะครับ!');
+                isCorrect = lvl.options[selectedAnswers[0]].correct;
+            } else if (lvl.type === 'multi') {
+                if (selectedAnswers.length === 0) return alert('กรุณาเลือกอย่างน้อย 1 ข้อนะครับ!');
+                const correctIndices = lvl.options.map((opt, i) => opt.correct ? i : null).filter(i => i !== null);
+                isCorrect = selectedAnswers.length === correctIndices.length && 
+                            selectedAnswers.every(i => correctIndices.includes(i));
+            } else if (lvl.type === 'order') {
+                const currentOrder = Array.from(document.querySelectorAll('#order-list .item-text')).map(el => el.innerText.trim());
+                isCorrect = JSON.stringify(currentOrder) === JSON.stringify(lvl.correctOrder);
+            } else if (lvl.type === 'grouping') {
+                const allAssigned = [...level5Groups.g1, ...level5Groups.g2, ...level5Groups.g3];
+                if (allAssigned.length < lvl.subtasks.length) {
+                    return alert('กรุณาจัดกลุ่มงานย่อยให้ครบทุกข้อก่อนนะครับ!');
+                }
+                
+                // Check if all tasks match their designated correct group
+                let check1 = level5Groups.g1.every(t => t.group === 'g1');
+                let check2 = level5Groups.g2.every(t => t.group === 'g2');
+                let check3 = level5Groups.g3.every(t => t.group === 'g3');
+                isCorrect = check1 && check2 && check3;
+            }
+
+            const fbBox = document.getElementById('feedback-box');
+            fbBox.classList.remove('hidden');
+
+            if (isCorrect) {
+                playSound('correct');
+                totalScore += 10;
+                document.getElementById('total-score').innerText = totalScore;
+
+                let extraGroupHtml = '';
+                if (currentLevel === 5) {
+                    extraGroupHtml = `
+                        <div class="mt-3 p-3 bg-white/90 rounded-2xl border border-emerald-200 text-left text-xs md:text-sm text-slate-700 shadow-sm">
+                            <p class="font-bold text-emerald-800 mb-2">💡 เมื่อเราแยกปัญหาย่อยแล้ว เราสามารถจัดกลุ่มงานให้เป็นระบบได้ดังนี้:</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div class="bg-blue-50 p-2.5 rounded-xl border border-blue-100">
+                                    <span class="font-bold text-blue-700 block mb-1">🎨 ฝ่ายตกแต่ง & ป้าย</span>
+                                    <p class="text-xs text-slate-600">• ตกแต่งห้องเรียน<br>• ทำป้ายชื่อนิทรรศการ</p>
+                                </div>
+                                <div class="bg-purple-50 p-2.5 rounded-xl border border-purple-100">
+                                    <span class="font-bold text-purple-700 block mb-1">🧪 ฝ่ายสถานที่ & อุปกรณ์</span>
+                                    <p class="text-xs text-slate-600">• จัดเตรียมโต๊ะเก้าอี้<br>• เตรียมอุปกรณ์ทดลอง</p>
+                                </div>
+                                <div class="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
+                                    <span class="font-bold text-amber-700 block mb-1">👥 ฝ่ายบริหาร & ตรวจสอบ</span>
+                                    <p class="text-xs text-slate-600">• แบ่งหน้าที่ความรับผิดชอบ<br>• ตรวจสอบความเรียบร้อย</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                fbBox.className = 'p-4 rounded-2xl mb-5 text-sm md:text-base font-bold bg-emerald-100 text-emerald-900 border-2 border-emerald-300 pop-in';
+                fbBox.innerHTML = `🎉 <strong>เก่งมาก!</strong> ${lvl.explanation}${extraGroupHtml}`;
+                
+                document.getElementById('submit-btn').classList.add('hidden');
+                document.getElementById('next-btn').classList.remove('hidden');
+            } else {
+                playSound('wrong');
+                fbBox.className = 'p-4 rounded-2xl mb-5 text-sm md:text-base font-bold bg-amber-100 text-amber-900 border-2 border-amber-300 shake';
+                fbBox.innerHTML = `💡 <strong>คำใบ้:</strong> ${lvl.hint}`;
+                
+                document.getElementById('submit-btn').classList.add('hidden');
+                document.getElementById('retry-btn').classList.remove('hidden');
+            }
+        }
+
+        function retryLevel() {
+            playSound('click');
+            loadLevel(currentLevel);
+        }
+
+        function nextLevel() {
+            playSound('click');
+            if (currentLevel < 5) {
+                currentLevel++;
+                loadLevel(currentLevel);
+            } else {
+                // Finish 5 levels, move to Quiz Section
+                startQuizSection();
+            }
+        }
+
+        // Post-Game Quiz Section
+        function startQuizSection() {
+            document.getElementById('level-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.remove('hidden');
+            
+            // Randomly select 5 questions
+            activeQuiz = [...quizBank].sort(() => Math.random() - 0.5);
+            currentQuizIndex = 0;
+            quizScore = 0;
+            loadQuizQuestion();
+        }
+
+        function loadQuizQuestion() {
+            const qData = activeQuiz[currentQuizIndex];
+            document.getElementById('quiz-num').innerText = currentQuizIndex + 1;
+            document.getElementById('quiz-question').innerText = qData.q;
+            
+            const optionsDiv = document.getElementById('quiz-options');
+            optionsDiv.innerHTML = '';
+
+            qData.options.forEach((optText, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-4 rounded-2xl border-2 border-slate-200 bg-white hover:bg-slate-50 transition font-semibold text-slate-700 btn-bounce text-sm md:text-base shadow-sm';
+                btn.innerText = optText;
+                btn.onclick = () => selectQuizOption(btn, idx);
+                optionsDiv.appendChild(btn);
+            });
+
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            document.getElementById('quiz-submit-btn').classList.remove('hidden');
+            document.getElementById('quiz-next-btn').classList.add('hidden');
+            selectedAnswers = [];
+        }
+
+        function selectQuizOption(btn, index) {
+            playSound('click');
+            const children = btn.parentElement.children;
+            for (let child of children) {
+                child.classList.remove('selected-card');
+            }
+            btn.classList.add('selected-card');
+            selectedAnswers = [index];
+        }
+
+        function checkQuizAnswer() {
+            if (selectedAnswers.length === 0) return alert('กรุณาเลือกคำตอบก่อนนะครับ!');
+            
+            const qData = activeQuiz[currentQuizIndex];
+            const isCorrect = selectedAnswers[0] === qData.answer;
+            const fb = document.getElementById('quiz-feedback');
+            fb.classList.remove('hidden');
+
+            if (isCorrect) {
+                playSound('correct');
+                quizScore += 1;
+                fb.className = 'p-4 rounded-2xl mb-5 text-sm md:text-base font-bold bg-emerald-100 text-emerald-900 border-2 border-emerald-300 pop-in';
+                fb.innerHTML = `✨ <strong>ถูกต้อง!</strong> ${qData.exp}`;
+            } else {
+                playSound('wrong');
+                fb.className = 'p-4 rounded-2xl mb-5 text-sm md:text-base font-bold bg-rose-100 text-rose-900 border-2 border-rose-300 shake';
+                fb.innerHTML = `❌ <strong>ยังไม่ถูกต้อง!</strong> ${qData.exp}`;
+            }
+
+            document.getElementById('quiz-submit-btn').classList.add('hidden');
+            document.getElementById('quiz-next-btn').classList.remove('hidden');
+        }
+
+        function nextQuizQuestion() {
+            playSound('click');
+            if (currentQuizIndex < activeQuiz.length - 1) {
+                currentQuizIndex++;
+                loadQuizQuestion();
+            } else {
+                showSummaryScreen();
+            }
+        }
+
+        // Final Summary & Evaluation
+        function showSummaryScreen() {
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('summary-screen').classList.remove('hidden');
+
+            document.getElementById('final-score').innerText = totalScore;
+            document.getElementById('final-quiz-score').innerText = quizScore;
+
+            let icon = "🌱";
+            let title = "นักคิดกำลังพัฒนา";
+            let desc = "ไม่เป็นไรนะ! ลองทบทวนเนื้อหาแล้วมาช่วยหุ่นยนต์น้อยใหม่อีกครั้งนะจ๊ะ";
+
+            if (totalScore >= 45) {
+                icon = "🏆";
+                title = "นักคิดแก้ปัญหามือโปร";
+                desc = "สุดยอดไปเลย! หนูเข้าใจการแยกปัญหาได้อย่างดีเยี่ยมและพร้อมลุยทุกภารกิจ";
+            } else if (totalScore >= 35) {
+                icon = "⭐";
+                title = "นักคิดเก่งมาก";
+                desc = "เก่งมากเลย! หนูสามารถย่อยงานใหญ่ให้เป็นขั้นตอนเล็ก ๆ ได้ดีมาก";
+            } else if (totalScore >= 25) {
+                icon = "👍";
+                title = "นักคิดฝึกหัด";
+                desc = "ทำได้ดี! หนูเริ่มจับหลักการแยกปัญหาได้แล้ว ฝึกอีกนิดเก่งขึ้นแน่นอน";
+            }
+
+            document.getElementById('rank-icon').innerText = icon;
+            document.getElementById('rank-title').innerText = title;
+            document.getElementById('rank-desc').innerText = desc;
+
+            // Trigger Confetti Celebration
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        function restartGame() {
+            playSound('click');
+            document.getElementById('summary-screen').classList.add('hidden');
+            startGame();
+        }
+    </script>
+</body>
+</html>
